@@ -1,0 +1,1894 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Grid Trading Bot – arifDanny</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #07090f;
+    --surface: #0e1117;
+    --border: rgba(255,255,255,0.06);
+    --green: #34d399;
+    --green-dim: #10b981;
+    --red: #f43f5e;
+    --red-dim: #e11d48;
+    --yellow: #fbbf24;
+    --blue: #818cf8;
+    --text-muted: #3d4a5c;
+    --text-mid: #7a8799;
+    --mono: 'Roboto Mono', monospace;
+    --display: 'Barlow Condensed', sans-serif;
+    --sans: 'Barlow', sans-serif;
+    --nav-h: 64px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: #e2e8f0;
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(52,211,153,0.055) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 90% 110%, rgba(129,140,248,0.04) 0%, transparent 55%);
+    pointer-events: none; z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none; z-index: 0;
+    mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+  }
+
+  /* ── Pages ── */
+  .page {
+    display: none;
+    padding: 18px 16px calc(var(--nav-h) + 16px);
+    min-height: 100vh;
+    position: relative; z-index: 1;
+    animation: pageIn .3s ease both;
+  }
+  .page.active { display: block; }
+
+  @keyframes pageIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .container { max-width: 460px; margin: 0 auto; }
+
+  /* ── Badge ── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: rgba(52,211,153,0.06);
+    border: 1px solid rgba(52,211,153,0.18);
+    border-radius: 20px; padding: 3px 10px 3px 8px;
+    font-size: 8px; letter-spacing: 0.14em; color: var(--green);
+    margin-bottom: 8px;
+    font-family: var(--sans); font-weight: 600;
+  }
+  .badge::before {
+    content: ''; width: 5px; height: 5px; border-radius: 50%;
+    background: currentColor; box-shadow: 0 0 6px currentColor;
+    animation: pulse 2s infinite; flex-shrink: 0;
+  }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:.3} }
+
+  h1 {
+    font-family: var(--sans); font-size: clamp(18px, 5vw, 24px);
+    font-weight: 800; letter-spacing: -0.04em; color: #f1f5f9;
+    margin-bottom: 2px; line-height: 1.1;
+  }
+  h1 span { color: var(--green); }
+
+  .subtitle {
+    font-size: 9px; color: var(--text-muted);
+    letter-spacing: 0.07em; margin-bottom: 0;
+  }
+  .page-header {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px; gap: 12px;
+  }
+  .page-header-left { display: flex; flex-direction: column; gap: 3px; }
+  .page-header .badge { margin-bottom: 0; flex-shrink: 0; }
+
+  /* ── Bottom Nav ── */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: var(--nav-h);
+    background: rgba(7,9,15,0.92);
+    backdrop-filter: blur(24px) saturate(1.4);
+    -webkit-backdrop-filter: blur(24px) saturate(1.4);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    display: flex; align-items: center; justify-content: space-around;
+    z-index: 100;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 5px; cursor: pointer;
+    padding: 8px 0;
+    position: relative;
+    transition: all .2s ease;
+    user-select: none;
+  }
+
+  .nav-item .nav-icon {
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted);
+    transition: transform .2s ease, color .2s ease;
+  }
+  .nav-item .nav-icon svg {
+    width: 22px; height: 22px;
+    transition: color .2s ease;
+  }
+
+  .nav-item .nav-label {
+    font-size: 10px; letter-spacing: 0.04em;
+    color: var(--text-muted);
+    transition: color .2s;
+    font-family: var(--sans); font-weight: 600;
+  }
+
+  .nav-item.active .nav-label { color: var(--green); }
+  .nav-item.active .nav-icon { color: var(--green); }
+  #nav-short.active .nav-label { color: var(--red); }
+  #nav-short.active .nav-icon { color: var(--red); }
+  #nav-short.active::before { background: linear-gradient(90deg, transparent, var(--red), transparent); }
+
+  /* Active pill indicator */
+  .nav-item::before {
+    content: '';
+    position: absolute; top: 0; left: 50%;
+    transform: translateX(-50%) scaleX(0);
+    width: 32px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    border-radius: 0 0 4px 4px;
+    transition: transform .25s ease;
+  }
+  .nav-item.active::before { transform: translateX(-50%) scaleX(1); }
+
+  .nav-item:active .nav-icon { transform: scale(0.85); }
+
+  /* ── PRICE RANGE PAGE ── */
+  .card {
+    border-radius: 16px; padding: 22px;
+    margin-bottom: 12px; position: relative; overflow: hidden;
+  }
+  .card-long {
+    background: linear-gradient(145deg, rgba(52,211,153,0.05) 0%, rgba(52,211,153,0.01) 50%, transparent);
+    border: 1px solid rgba(52,211,153,0.14);
+    box-shadow: 0 1px 0 rgba(52,211,153,0.08) inset, 0 8px 32px rgba(0,0,0,0.3);
+  }
+  .card-long::before {
+    content: ''; position: absolute; top:-80px; right:-80px;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(52,211,153,0.06), transparent 65%);
+    pointer-events: none;
+  }
+  .card-short {
+    background: linear-gradient(145deg, rgba(244,63,94,0.05) 0%, rgba(244,63,94,0.01) 50%, transparent);
+    border: 1px solid rgba(244,63,94,0.14);
+    box-shadow: 0 1px 0 rgba(244,63,94,0.08) inset, 0 8px 32px rgba(0,0,0,0.3);
+  }
+  .card-short::before {
+    content: ''; position: absolute; top:-80px; right:-80px;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle, rgba(244,63,94,0.06), transparent 65%);
+    pointer-events: none;
+  }
+
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+
+  .direction-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 20px; padding: 5px 14px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+  }
+  .tag-long { background: rgba(52,211,153,0.12); color: var(--green); border: 1px solid rgba(52,211,153,0.25); }
+  .tag-short { background: rgba(244,63,94,0.12); color: var(--red); border: 1px solid rgba(244,63,94,0.25); }
+
+  .range-info { font-size: 10px; color: var(--text-muted); letter-spacing: 0.05em; }
+  .range-info span { color: var(--text-mid); }
+
+  .field-label {
+    font-size: 9px; letter-spacing: 0.04em;
+    color: var(--text-muted); margin-bottom: 5px;
+    text-transform: uppercase; min-height: 16px;
+    display: flex; align-items: flex-end;
+    font-family: var(--sans); font-weight: 600;
+  }
+
+  .input-wrap { position: relative; margin-bottom: 14px; }
+  .currency {
+    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+    font-size: 14px; font-weight: 700; pointer-events: none;
+  }
+  .card-long .currency { color: var(--green); }
+  .card-short .currency { color: var(--red); }
+
+  .prefix {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    font-size: 10px; font-weight: 700; color: var(--green); pointer-events: none;
+  }
+
+  input[type="number"] {
+    width: 100%; background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+    padding: 9px 10px 9px 30px;
+    font-family: var(--mono); font-size: 14px; font-weight: 700; color: #f1f5f9;
+    outline: none; transition: border-color .25s, box-shadow .25s, background .25s;
+    -moz-appearance: textfield;
+  }
+  input.no-pfx { padding-left: 10px; font-size: 13px; }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; }
+  input::placeholder { color: var(--text-muted); font-size: 11px; }
+
+  .card-long input:focus {
+    border-color: rgba(52,211,153,0.35);
+    box-shadow: 0 0 0 3px rgba(52,211,153,0.07);
+    background: rgba(52,211,153,0.03);
+  }
+  .card-short input:focus {
+    border-color: rgba(244,63,94,0.35);
+    box-shadow: 0 0 0 3px rgba(244,63,94,0.07);
+    background: rgba(244,63,94,0.03);
+  }
+
+  .price-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .price-box {
+    background: rgba(0,0,0,0.3); border-radius: 10px; padding: 14px;
+    border: 1px solid var(--border);
+  }
+  .card-long .price-box { border-top: 2px solid rgba(52,211,153,0.2); }
+  .card-short .price-box { border-top: 2px solid rgba(244,63,94,0.2); }
+  .price-box-label { font-size: 9px; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 6px; font-family: var(--sans); font-weight: 600; text-transform: uppercase; }
+  .price-value { font-size: 18px; font-weight: 700; margin-bottom: 4px; min-height: 26px; font-family: var(--mono); }
+  .card-long .price-value { color: var(--green); }
+  .card-short .price-value { color: var(--red); }
+  .price-pct { font-size: 10px; color: var(--text-muted); font-family: var(--sans); }
+
+  @keyframes shimmer { 0%{opacity:.5}50%{opacity:1}100%{opacity:1} }
+  .updated { animation: shimmer .3s ease; }
+
+  /* ── MARTINGALE PAGE ── */
+  .input-card {
+    background: linear-gradient(145deg, rgba(52,211,153,0.05) 0%, rgba(52,211,153,0.01) 60%, transparent);
+    border: 1px solid rgba(52,211,153,0.13); border-radius: 14px;
+    padding: 12px; margin-bottom: 10px; position: relative; overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  }
+  .input-card::before {
+    content: ''; position: absolute; top:-60px; right:-60px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(52,211,153,0.05), transparent 65%);
+    pointer-events: none;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+
+  .sep { height: 1px; background: var(--border); margin: 8px 0; }
+
+  .chips { display: flex; gap: 7px; flex-wrap: wrap; }
+  .chip { font-size: 10px; padding: 4px 10px; border-radius: 20px; letter-spacing: 0.02em; font-family: var(--sans); font-weight: 600; }
+  .chip-green { background: rgba(52,211,153,0.08); color: var(--green); border: 1px solid rgba(52,211,153,0.18); }
+  .chip-yellow { background: rgba(251,191,36,0.08); color: var(--yellow); border: 1px solid rgba(251,191,36,0.18); }
+  .chip-muted { background: rgba(255,255,255,0.03); color: var(--text-mid); border: 1px solid rgba(255,255,255,0.07); }
+
+  .summary {
+    display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
+    margin-bottom: 12px;
+  }
+  .summary-row2 {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .sbox {
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 11px; padding: 10px 8px; text-align: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  }
+  .sbox-label { font-size: 8px; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; font-family: var(--sans); font-weight: 700; }
+  .sbox-val { font-size: 13px; font-weight: 700; font-family: var(--mono); }
+  .sv-green { color: var(--green); }
+  .sv-yellow { color: var(--yellow); }
+  .sv-white { color: #fff; }
+  .sv-blue { color: var(--blue); }
+  .sv-profit { color: #a78bfa; }
+  .sbox-profit {
+    background: rgba(167,139,250,0.06);
+    border: 1px solid rgba(167,139,250,0.2);
+  }
+  .sbox-breakeven {
+    background: rgba(96,165,250,0.06);
+    border: 1px solid rgba(96,165,250,0.2);
+  }
+
+  .table-wrap {
+    border-radius: 14px; overflow: hidden;
+    border: 1px solid rgba(52,211,153,0.15);
+  }
+  .table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .table-scroll::-webkit-scrollbar { display: none; }
+  .table-scroll-hint {
+    font-size: 8px; color: var(--text-muted); letter-spacing: 0.08em;
+    text-align: right; margin-bottom: 4px; opacity: 0.6;
+  }
+  .t-head {
+    background: rgba(52,211,153,0.09);
+    display: grid;
+    grid-template-columns: 24px 44px 60px 60px 64px 60px 46px;
+    padding: 6px 0;
+    min-width: 362px;
+  }
+  .th {
+    font-size: 7px; letter-spacing: 0.07em; color: var(--text-muted);
+    text-align: center; text-transform: uppercase; padding: 0 2px;
+    font-family: var(--sans); font-weight: 600;
+  }
+  .th:first-child { color: var(--green); }
+  .t-body { background: rgba(0,0,0,0.18); }
+  .tr {
+    display: grid;
+    grid-template-columns: 24px 44px 60px 60px 64px 60px 46px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    position: relative; transition: background .15s;
+    animation: rowIn .25s ease both;
+    min-width: 362px;
+  }
+  .tr:hover { background: rgba(52,211,153,0.04); }
+  .tr:last-child { border-bottom: none; }
+  .tr.row-last {
+    background: transparent;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .td {
+    font-size: 10px; text-align: center; padding: 6px 2px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono);
+  }
+  .td-no   { color: var(--text-muted); font-size: 9px; }
+  .td-step { color: var(--text-mid); font-size: 9px; }
+  .td-price { color: #fff; font-weight: 700; font-size: 10px; }
+  .td-nom   { color: var(--yellow); font-weight: 700; }
+  .td-cum   { color: var(--green); font-weight: 700; }
+  .td-avg   { color: var(--blue); font-size: 9px; }
+  .td-drop  { color: var(--red); font-size: 9px; }
+  .bar-wrap { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, transparent, rgba(251,191,36,0.25)); border-radius: 0 2px 2px 0; }
+
+  .empty {
+    text-align: center; padding: 36px 20px;
+    color: var(--text-muted); font-size: 11px; letter-spacing: 0.07em;
+    background: rgba(0,0,0,0.15);
+  }
+  .empty-icon { font-size: 26px; margin-bottom: 10px; opacity: .4; }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center; margin-top: 28px;
+    font-size: 11px; color: #4a5568; letter-spacing: 0.08em;
+  }
+
+  @keyframes rowIn { from{opacity:0;transform:translateX(-6px)} to{opacity:1;transform:translateX(0)} }
+
+  /* ── Martingale SHORT overrides ── */
+  .input-card-short {
+    background: linear-gradient(145deg, rgba(244,63,94,0.05) 0%, rgba(244,63,94,0.01) 60%, transparent);
+    border: 1px solid rgba(244,63,94,0.13); border-radius: 14px;
+    padding: 12px; margin-bottom: 10px; position: relative; overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  }
+  .input-card-short::before {
+    content: ''; position: absolute; top:-60px; right:-60px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(244,63,94,0.05), transparent 65%);
+    pointer-events: none;
+  }
+  .input-card-short input:focus {
+    border-color: rgba(244,63,94,0.4);
+    box-shadow: 0 0 0 3px rgba(244,63,94,0.08);
+  }
+  .input-card-short .prefix { color: var(--red); }
+  .table-wrap-short {
+    border-radius: 14px; overflow: hidden;
+    border: 1px solid rgba(244,63,94,0.15);
+  }
+  .t-head-short {
+    background: rgba(244,63,94,0.09);
+    display: grid;
+    grid-template-columns: 28px 52px 68px 68px 72px 68px 52px;
+    padding: 9px 0;
+    min-width: 410px;
+  }
+  .t-head-short .th:first-child { color: var(--red); }
+  .td-rise { color: var(--green); font-size: 10px; font-family: var(--mono); }
+  .sbox-short { background: rgba(244,63,94,0.06); border: 1px solid rgba(244,63,94,0.2); }
+  .sv-red { color: var(--red); }
+  .sbox-breakeven-short { background: rgba(96,165,250,0.06); border: 1px solid rgba(96,165,250,0.2); }
+  .sbox-profit-short { background: rgba(167,139,250,0.06); border: 1px solid rgba(167,139,250,0.2); }
+
+  /* ── Global Param Panel ── */
+  .param-panel {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px; padding: 12px 14px;
+    margin-bottom: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  }
+  .param-title {
+    font-size: 9px; letter-spacing: 0.1em; font-weight: 700;
+    color: var(--text-muted); text-transform: uppercase;
+    margin-bottom: 10px; font-family: var(--sans);
+  }
+  .param-grid {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; align-items: start;
+  }
+  .param-divider {
+    width: 1px; background: rgba(255,255,255,0.07);
+    margin: 0 12px; align-self: stretch;
+  }
+  .param-col { display: flex; flex-direction: column; gap: 6px; }
+  .param-col-label {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+    color: var(--green); font-family: var(--sans); margin-bottom: 4px;
+  }
+  .param-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .param-field { display: flex; flex-direction: column; gap: 4px; }
+  .param-label {
+    font-size: 8px; letter-spacing: 0.06em; color: var(--text-muted);
+    text-transform: uppercase; font-family: var(--sans); font-weight: 600;
+  }
+  .param-input-wrap {
+    display: flex; align-items: center;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px; overflow: hidden; height: 32px;
+  }
+  .param-prefix, .param-suffix {
+    font-size: 10px; font-weight: 700; color: var(--green);
+    padding: 0 5px; flex-shrink: 0; font-family: var(--mono);
+  }
+  .param-suffix { color: var(--text-muted); font-size: 9px; }
+  .param-prefix-red { color: var(--red) !important; }
+  .param-suffix-red { color: var(--red) !important; opacity: 0.7; }
+  .param-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    font-family: var(--mono); font-size: 13px; font-weight: 700;
+    color: var(--green); width: 100%; min-width: 0;
+    padding: 0 2px; text-align: center;
+    -moz-appearance: textfield;
+  }
+  .param-input::-webkit-outer-spin-button,
+  .param-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+  .param-input-short { color: var(--red) !important; }
+  /* Override global input[type=number] for param inputs */
+  .param-input-wrap input[type="number"].param-input {
+    padding: 0 2px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    border-radius: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    height: 30px !important;
+    box-shadow: none !important;
+  }
+  .param-input-wrap input[type="number"].param-input:focus {
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  /* ── MULTI BOT PAGE ── */
+  .mb-add-btn {
+    width:100%; padding:13px;
+    background: rgba(52,211,153,0.04);
+    border: 1px dashed rgba(52,211,153,0.2);
+    border-radius:12px; color:var(--green);
+    font-size:12px; font-weight:700; font-family:var(--sans);
+    letter-spacing:0.06em; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition: background .2s, border-color .2s; margin-bottom:16px;
+  }
+  .mb-add-btn:active { background:rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.35); }
+  .mb-coin-block {
+    background: rgba(255,255,255,0.018); border: 1px solid rgba(255,255,255,0.07);
+    border-radius:16px; margin-bottom:14px; overflow:hidden;
+    animation: pageIn .3s ease both;
+    transition: opacity .25s;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35);
+  }
+  .mb-coin-block.minimized { opacity:0.72; }
+  .mb-coin-block.minimized .mb-coin-header { border-bottom:none; }
+  .mb-coin-body {
+    overflow:hidden;
+    max-height:2000px;
+    transition: max-height .35s cubic-bezier(0.4,0,0.2,1), opacity .3s ease;
+    opacity:1;
+  }
+  .mb-coin-block.minimized .mb-coin-body {
+    max-height:0;
+    opacity:0;
+    pointer-events:none;
+  }
+  .mb-minimize-btn {
+    width:30px; height:30px; border-radius:8px;
+    background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+    color:var(--text-mid); font-size:14px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    transition: background .2s, transform .25s ease;
+    margin-right:8px; flex-shrink:0;
+    font-family:var(--mono); font-weight:700; line-height:1;
+  }
+  .mb-minimize-btn:active { background:rgba(255,255,255,0.1); }
+  .mb-coin-block.minimized .mb-minimize-btn {
+    transform: rotate(180deg);
+    color: var(--green);
+    border-color: rgba(52,211,153,0.2);
+    background: rgba(52,211,153,0.06);
+  }
+  .mb-header-right { display:flex; align-items:center; gap:0; }
+  .mb-coin-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--border);
+    background:rgba(0,0,0,0.2); cursor:pointer;
+    transition: background .2s;
+  }
+  .mb-coin-header:active { background:rgba(255,255,255,0.03); }
+  .mb-coin-title { display:flex; align-items:center; gap:10px; }
+  .mb-coin-avatar {
+    width:34px; height:34px; border-radius:50%;
+    background:rgba(255,255,255,0.06);
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:800; color:#fff;
+  }
+  .mb-coin-name { font-size:17px; font-weight:800; color:#fff; }
+  .mb-coin-sub  { font-size:9px; color:var(--text-muted); letter-spacing:0.07em; margin-top:1px; }
+  .mb-del-btn {
+    width:30px; height:30px; border-radius:8px;
+    background:rgba(244,63,94,0.07); border:1px solid rgba(244,63,94,0.15);
+    color:var(--red); font-size:13px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .mb-del-btn:active { background:rgba(244,63,94,0.18); }
+  .mb-tabs { display:flex; border-bottom:1px solid var(--border); }
+  .mb-tab {
+    flex:1; padding:10px 0; text-align:center;
+    font-size:11px; font-weight:700; letter-spacing:0.06em;
+    cursor:pointer; color:var(--text-muted);
+    border-bottom:2px solid transparent;
+    transition:color .2s, border-color .2s; font-family:var(--sans);
+  }
+  .mb-tab.active-long  { color:var(--green); border-bottom-color:var(--green-dim); }
+  .mb-tab.active-short { color:var(--red);   border-bottom-color:var(--red-dim); }
+  .mb-panel { padding:10px 12px; display:none; }
+  .mb-panel.visible { display:block; }
+  .mb-panel .input-card, .mb-panel .input-card-short { padding:10px; margin-bottom:8px; }
+  .mb-panel .summary { margin-bottom:6px; gap:6px; }
+  .mb-panel .summary-row2 { margin-bottom:6px; gap:6px; }
+  .mb-panel .input-wrap { margin-bottom:6px; }
+  .mb-panel input[type="number"] { padding:5px 6px 5px 22px; font-size:12px; border-radius:8px; height:30px; }
+  .mb-panel input.no-pfx { padding:5px 8px; font-size:12px; height:30px; }
+  .mb-panel .currency { font-size:11px; left:7px; }
+  .mb-panel .prefix   { font-size:10px; left:7px; }
+  .mb-panel .field-label { font-size:8px; margin-bottom:3px; min-height:unset; }
+  .mb-panel .sep { margin:5px 0; }
+  .mb-panel .chips { gap:5px; }
+  .mb-panel .chip { font-size:9px; padding:3px 8px; }
+  .mb-panel .sbox { padding:8px 6px; }
+  .mb-panel .sbox-label { font-size:7px; margin-bottom:3px; }
+  .mb-panel .sbox-val { font-size:11px; }
+  .mb-modal-overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.78); z-index:300;
+    align-items:flex-start; justify-content:center;
+    padding-top: 80px;
+    backdrop-filter:blur(4px);
+  }
+  .mb-modal-overlay.open { display:flex; }
+  .mb-modal {
+    background: #0e1117; border-radius:16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    padding:24px 20px 28px; width:90%; max-width:420px;
+    animation:slideDown .3s ease;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  }
+  @keyframes slideDown { from{opacity:0;transform:translateY(-20px)} to{opacity:1;transform:translateY(0)} }
+  .mb-modal-title { font-size:16px; font-weight:800; color:#fff; margin-bottom:18px; }
+  .mb-modal-input {
+    width:100%; background:rgba(0,0,0,0.4);
+    border:1px solid var(--border); border-radius:10px;
+    padding:13px 16px; font-family:var(--sans); font-size:16px;
+    font-weight:700; color:#fff; outline:none;
+    text-transform:uppercase; letter-spacing:0.05em;
+    transition:border-color .2s;
+  }
+  .mb-modal-input:focus { border-color:rgba(52,211,153,0.4); }
+  .mb-modal-input::placeholder { color:var(--text-muted); font-size:13px; text-transform:none; letter-spacing:0; }
+  .mb-modal-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px; }
+  .mb-btn-cancel {
+    padding:13px; border-radius:10px;
+    background:rgba(255,255,255,0.04); border:1px solid var(--border);
+    color:var(--text-mid); font-size:13px; font-weight:700;
+    font-family:var(--sans); cursor:pointer;
+  }
+  .mb-btn-ok {
+    padding:13px; border-radius:10px;
+    background: linear-gradient(135deg, var(--green), var(--green-dim));
+    border:none; color:#022c22; font-size:13px; font-weight:800;
+    font-family:var(--sans); cursor:pointer;
+    box-shadow: 0 4px 16px rgba(52,211,153,0.25);
+  }
+  .mb-empty {
+    text-align:center; padding:40px 20px;
+    color:var(--text-muted); font-size:12px; letter-spacing:0.06em;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ PAGE 1: Price Range ══ -->
+<div class="page" id="page-range">
+  <div class="container">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>Price <span>Range</span></h1>
+        <p class="subtitle">min &amp; max for grid bot</p>
+      </div>
+      <div class="badge">GRID BOT</div>
+    </div>
+
+    <!-- LONG -->
+    <div class="card card-long">
+      <div class="card-header">
+        <span class="direction-tag tag-long">▲ LONG</span>
+        <span class="range-info">min <span>-50%</span> / max <span>+10%</span></span>
+      </div>
+      <div class="field-label">Initial Price</div>
+      <div class="input-wrap">
+        <span class="currency">$</span>
+        <input type="number" id="longInput" placeholder="0.00" step="0.01" min="0" oninput="calcLong(this.value)">
+      </div>
+      <div class="price-grid">
+        <div class="price-box">
+          <div class="price-box-label">MIN PRICE</div>
+          <div class="price-value" id="longMin">—</div>
+          <div class="price-pct">-50% from initial</div>
+        </div>
+        <div class="price-box">
+          <div class="price-box-label">MAX PRICE</div>
+          <div class="price-value" id="longMax">—</div>
+          <div class="price-pct">+10% from initial</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHORT -->
+    <div class="card card-short">
+      <div class="card-header">
+        <span class="direction-tag tag-short">▼ SHORT</span>
+        <span class="range-info">min <span>-10%</span> / max <span>+50%</span></span>
+      </div>
+      <div class="field-label">Initial Price</div>
+      <div class="input-wrap">
+        <span class="currency">$</span>
+        <input type="number" id="shortInput" placeholder="0.00" step="0.01" min="0" oninput="calcShort(this.value)">
+      </div>
+      <div class="price-grid">
+        <div class="price-box">
+          <div class="price-box-label">MIN PRICE</div>
+          <div class="price-value" id="shortMin">—</div>
+          <div class="price-pct">-10% from initial</div>
+        </div>
+        <div class="price-box">
+          <div class="price-box-label">MAX PRICE</div>
+          <div class="price-value" id="shortMax">—</div>
+          <div class="price-pct">+50% from initial</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Made with <span style="color:#ff3d5a">♥</span> by <span style="color:#00ff88">arifDanny</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 2: Martingale LONG ══ -->
+<div class="page" id="page-martingale">
+  <div class="container">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>Martingale <span>LONG</span></h1>
+        <p class="subtitle">20 entries · progressive DCA</p>
+      </div>
+      <div class="badge">DCA BOT</div>
+    </div>
+
+    <div class="input-card">
+      <div>
+        <div class="field-label">Initial Price Asset ($) <span id="syncBadge" style="margin-left:6px;font-size:7px;color:var(--green);background:rgba(52,211,153,0.12);border:1px solid rgba(52,211,153,0.25);border-radius:20px;padding:2px 7px;letter-spacing:0.08em;opacity:0;transition:opacity .4s;vertical-align:middle;">⟳ SYNCED</span></div>
+        <div class="input-wrap" style="margin-bottom:8px">
+          <span class="prefix">$</span>
+          <input type="number" id="iPrice" placeholder="0" step="0.01" min="0">
+        </div>
+      </div>
+      <div>
+        <div class="field-label">Initial Investment (USDT)</div>
+        <div class="input-wrap" style="margin-bottom:8px">
+          <span class="prefix">$</span>
+          <input type="number" id="iAmount" placeholder="0" step="1" min="1" value="">
+        </div>
+      </div>
+      <div>
+        <div class="field-label">Volume Multiplier</div>
+        <input type="number" class="no-pfx" id="iVolStep" placeholder="1.2" step="0.01" min="1.01" value="1.2" oninput="calc()">
+      </div>
+      <input type="hidden" id="iMinPrice" value="">
+
+      <div class="sep"></div>
+      <div class="chips">
+        <span class="chip chip-green">▲ LONG</span>
+        <span class="chip chip-muted">20 entries</span>
+        <span class="chip chip-muted" id="cMin">Min: auto -50%</span>
+      </div>
+    </div>
+
+    <div class="summary">
+      <div class="sbox">
+        <div class="sbox-label">Min Price</div>
+        <div class="sbox-val sv-green" id="sMin">—</div>
+      </div>
+      <div class="sbox">
+        <div class="sbox-label">Total Capital</div>
+        <div class="sbox-val sv-yellow" id="sTotal">—</div>
+      </div>
+      <div class="sbox">
+        <div class="sbox-label">Avg Price</div>
+        <div class="sbox-val sv-white" id="sAvg">—</div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <div class="table-scroll-hint">← scroll to see all →</div>
+      <div class="table-scroll">
+        <div class="t-head">
+          <div class="th">#</div>
+          <div class="th">Step</div>
+          <div class="th">Price</div>
+          <div class="th">Amount</div>
+          <div class="th">Cumul.</div>
+          <div class="th">Avg Price</div>
+          <div class="th">% Drop</div>
+        </div>
+        <div class="t-body" id="tBody">
+          <div class="empty">
+            <div class="empty-icon">📊</div>
+            Enter price & initial amount<br>to generate the table
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Made with <span style="color:#ff3d5a">♥</span> by <span style="color:#00ff88">arifDanny</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 3: Martingale SHORT ══ -->
+<div class="page" id="page-short">
+  <div class="container">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>Martingale <span style="color:var(--red)">SHORT</span></h1>
+        <p class="subtitle">20 entries · progressive DCA</p>
+      </div>
+      <div class="badge" style="background:rgba(244,63,94,0.08);border-color:rgba(244,63,94,0.2);color:var(--red);">DCA BOT</div>
+    </div>
+
+    <div class="input-card-short">
+      <div>
+        <div class="field-label">Initial Price Asset ($) <span id="syncBadgeS" style="margin-left:6px;font-size:7px;color:var(--red);background:rgba(244,63,94,0.12);border:1px solid rgba(244,63,94,0.25);border-radius:20px;padding:2px 7px;letter-spacing:0.08em;opacity:0;transition:opacity .4s;vertical-align:middle;">⟳ SYNCED</span></div>
+        <div class="input-wrap" style="margin-bottom:8px">
+          <span class="prefix" style="color:var(--red)">$</span>
+          <input type="number" id="sPriceS" placeholder="0" step="0.01" min="0">
+        </div>
+      </div>
+      <div>
+        <div class="field-label">Initial Investment (USDT)</div>
+        <div class="input-wrap" style="margin-bottom:8px">
+          <span class="prefix" style="color:var(--red)">$</span>
+          <input type="number" id="sAmountS" placeholder="0" step="1" min="1" value="">
+        </div>
+      </div>
+      <div>
+        <div class="field-label">Volume Multiplier</div>
+        <input type="number" class="no-pfx" id="sVolStepS" placeholder="1.2" step="0.01" min="1.01" value="1.2" oninput="calcShortMart()">
+      </div>
+      <input type="hidden" id="sMaxPriceS" value="">
+      <div class="sep"></div>
+      <div class="chips">
+        <span class="chip" style="background:rgba(244,63,94,0.1);color:var(--red);border:1px solid rgba(244,63,94,0.2);">▼ SHORT</span>
+        <span class="chip chip-muted">20 entries</span>
+        <span class="chip chip-muted" id="cMaxS">Max: auto +50%</span>
+      </div>
+    </div>
+
+    <div class="summary">
+      <div class="sbox" style="background:rgba(244,63,94,0.06);border:1px solid rgba(244,63,94,0.2);">
+        <div class="sbox-label">Max Price</div>
+        <div class="sbox-val sv-red" id="sMaxOut">—</div>
+      </div>
+      <div class="sbox">
+        <div class="sbox-label">Total Capital</div>
+        <div class="sbox-val sv-yellow" id="sTotalS">—</div>
+      </div>
+      <div class="sbox">
+        <div class="sbox-label">Avg Price</div>
+        <div class="sbox-val sv-white" id="sAvgS">—</div>
+      </div>
+    </div>
+    <div class="table-wrap" style="border-color:rgba(244,63,94,0.15);">
+      <div class="table-scroll-hint">← scroll to see all →</div>
+      <div class="table-scroll">
+        <div class="t-head" style="background:rgba(244,63,94,0.09);">
+          <div class="th" style="color:var(--red)">#</div>
+          <div class="th">Step</div>
+          <div class="th">Price</div>
+          <div class="th">Amount</div>
+          <div class="th">Cumul.</div>
+          <div class="th">Avg Price</div>
+          <div class="th">% Rise</div>
+        </div>
+        <div class="t-body" id="tBodyS">
+          <div class="empty">
+            <div class="empty-icon">📊</div>
+            Enter price & initial amount<br>to generate the table
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      Made with <span style="color:#ff3d5a">♥</span> by <span style="color:#00ff88">arifDanny</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PAGE 4: Multi Bot ══ -->
+<div class="page active" id="page-multi">
+  <div class="container">
+    <div class="page-header">
+      <div class="page-header-left">
+        <h1>Bot <span style="color:var(--blue)">Dashboard</span></h1>
+        <p class="subtitle">manage all your grid bots</p>
+      </div>
+      <div class="badge" style="background:rgba(96,165,250,0.08);border-color:rgba(96,165,250,0.2);color:var(--blue);">MULTI BOT</div>
+    </div>
+
+    <!-- ── Global Parameter Panel ── -->
+    <div class="param-panel">
+      <div class="param-title">⚙ Global Parameters</div>
+      <div class="param-grid">
+        <div class="param-col">
+          <div class="param-col-label">▲ LONG</div>
+          <div class="param-row">
+            <div class="param-field">
+              <div class="param-label">Min (%)</div>
+              <div class="param-input-wrap">
+                <span class="param-prefix">-</span>
+                <input type="number" id="gLongMin" class="param-input" value="50" min="1" max="99" step="1" oninput="applyGlobalParams()">
+                <span class="param-suffix">%</span>
+              </div>
+            </div>
+            <div class="param-field">
+              <div class="param-label">Max (%)</div>
+              <div class="param-input-wrap">
+                <span class="param-prefix">+</span>
+                <input type="number" id="gLongMax" class="param-input" value="10" min="1" max="200" step="1" oninput="applyGlobalParams()">
+                <span class="param-suffix">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="param-divider"></div>
+        <div class="param-col">
+          <div class="param-col-label" style="color:var(--red)">▼ SHORT</div>
+          <div class="param-row">
+            <div class="param-field">
+              <div class="param-label">Min (%)</div>
+              <div class="param-input-wrap">
+                <span class="param-prefix param-prefix-red">-</span>
+                <input type="number" id="gShortMin" class="param-input param-input-short" value="10" min="1" max="99" step="1" oninput="applyGlobalParams()">
+                <span class="param-suffix param-suffix-red">%</span>
+              </div>
+            </div>
+            <div class="param-field">
+              <div class="param-label">Max (%)</div>
+              <div class="param-input-wrap">
+                <span class="param-prefix param-prefix-red">+</span>
+                <input type="number" id="gShortMax" class="param-input param-input-short" value="50" min="1" max="200" step="1" oninput="applyGlobalParams()">
+                <span class="param-suffix param-suffix-red">%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="mb-add-btn" onclick="mbOpenModal()">
+      <span style="font-size:18px;line-height:1">+</span> Add Asset
+    </button>
+
+    <div id="mbCoinList">
+      <div class="mb-empty">
+        <div style="font-size:30px;margin-bottom:10px;opacity:.3">🤖</div>
+        No assets yet.<br>Add your first asset!
+      </div>
+    </div>
+
+    <div class="footer">Made with <span style="color:#ff3d5a">♥</span> by <span style="color:#00ff88">arifDanny</span></div>
+  </div>
+</div>
+
+<!-- Modal add asset -->
+<div class="mb-modal-overlay" id="mbModalOverlay" onclick="mbCloseOutside(event)">
+  <div class="mb-modal">
+    <div class="mb-modal-title">+ Add Asset</div>
+    <div style="font-size:9px;color:var(--text-muted);letter-spacing:0.08em;margin-bottom:8px;font-weight:600;">NAMA KOIN</div>
+    <input class="mb-modal-input" id="mbCoinInput" placeholder="e.g. BTC, ETH, HYPE, LINK..." oninput="this.value=this.value.toUpperCase()">
+    <div class="mb-modal-actions">
+      <button class="mb-btn-cancel" onclick="mbCloseModal()">Cancel</button>
+      <button class="mb-btn-ok" onclick="mbAddCoin()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Bottom Navigation ══ -->
+<nav class="bottom-nav">
+  <div class="nav-item active" id="nav-multi" onclick="goTo('multi')">
+    <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="3" width="20" height="14" rx="2"/>
+      <path d="M8 21h8M12 17v4"/>
+      <path d="M7 8h2M11 8h6M7 11.5h4M15 11.5h2"/>
+    </svg></span>
+    <span class="nav-label">MULTI BOT</span>
+  </div>
+  <div class="nav-item" id="nav-range" onclick="goTo('range')">
+    <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="2,18 7,12 11,15 16,8 22,11"/>
+      <line x1="2" y1="21" x2="22" y2="21"/>
+      <circle cx="7" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+      <circle cx="11" cy="15" r="1.2" fill="currentColor" stroke="none"/>
+      <circle cx="16" cy="8" r="1.2" fill="currentColor" stroke="none"/>
+    </svg></span>
+    <span class="nav-label">RANGE</span>
+  </div>
+  <div class="nav-item" id="nav-martingale" onclick="goTo('martingale')">
+    <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="4,20 4,4"/>
+      <polyline points="4,4 20,4"/>
+      <polyline points="4,20 10,13 13,16 17,11 20,13"/>
+      <polyline points="17,6 20,4 20,7"/>
+    </svg></span>
+    <span class="nav-label">LONG</span>
+  </div>
+  <div class="nav-item" id="nav-short" onclick="goTo('short')">
+    <span class="nav-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="4,4 4,20"/>
+      <polyline points="4,20 20,20"/>
+      <polyline points="4,4 10,11 13,8 17,13 20,11"/>
+      <polyline points="17,18 20,20 17,22"/>
+    </svg></span>
+    <span class="nav-label">SHORT</span>
+  </div>
+</nav>
+
+<script>
+/* ── Navigation ── */
+function goTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('nav-' + page).classList.add('active');
+  if (page === 'multi') mbRender();
+}
+
+/* ── Global Params ── */
+function getGlobalParams() {
+  const lMin = Math.abs(parseFloat(document.getElementById('gLongMin').value) || 50) / 100;
+  const lMax = Math.abs(parseFloat(document.getElementById('gLongMax').value) || 10) / 100;
+  const sMin = Math.abs(parseFloat(document.getElementById('gShortMin').value) || 10) / 100;
+  const sMax = Math.abs(parseFloat(document.getElementById('gShortMax').value) || 50) / 100;
+  return { lMin, lMax, sMin, sMax };
+}
+function applyGlobalParams() {
+  // Simpan ke localStorage
+  const p = getGlobalParams();
+  localStorage.setItem('gridbot_params', JSON.stringify(p));
+  // Update chip label di Martingale Long
+  document.getElementById('cMin').textContent = 'Min: auto -' + Math.round(p.lMin*100) + '%';
+  // Update chip label di Martingale Short
+  document.getElementById('cMaxS').textContent = 'Max: auto +' + Math.round(p.sMax*100) + '%';
+  // Update range-info di Page Range
+  const ri = document.querySelector('#page-range .card-long .range-info');
+  if (ri) ri.innerHTML = 'min <span>-' + Math.round(p.lMin*100) + '%</span> / max <span>+' + Math.round(p.lMax*100) + '%</span>';
+  const ris = document.querySelector('#page-range .card-short .range-info');
+  if (ris) ris.innerHTML = 'min <span>-' + Math.round(p.sMin*100) + '%</span> / max <span>+' + Math.round(p.sMax*100) + '%</span>';
+  // Update pct text di price-box
+  const longMinPct = document.querySelector('#page-range .card-long .price-box:first-child .price-pct');
+  if (longMinPct) longMinPct.textContent = '-' + Math.round(p.lMin*100) + '% from initial';
+  const longMaxPct = document.querySelector('#page-range .card-long .price-box:last-child .price-pct');
+  if (longMaxPct) longMaxPct.textContent = '+' + Math.round(p.lMax*100) + '% from initial';
+  const shortMinPct = document.querySelector('#page-range .card-short .price-box:first-child .price-pct');
+  if (shortMinPct) shortMinPct.textContent = '-' + Math.round(p.sMin*100) + '% from initial';
+  const shortMaxPct = document.querySelector('#page-range .card-short .price-box:last-child .price-pct');
+  if (shortMaxPct) shortMaxPct.textContent = '+' + Math.round(p.sMax*100) + '% from initial';
+  // Recalc semua secara instan
+  // Gunakan setTimeout 0 agar DOM sudah update dulu
+  setTimeout(() => {
+    const lv = document.getElementById('longInput').value;
+    if (lv) calcLong(lv);
+    const sv = document.getElementById('shortInput').value;
+    if (sv) calcShort(sv);
+    calc();
+    calcShortMart();
+    // Update semua card multibot juga
+    mbLoad().forEach(c => { mbCalcLong(c.id); mbCalcShort(c.id); });
+  }, 0);
+}
+function loadGlobalParams() {
+  try {
+    const p = JSON.parse(localStorage.getItem('gridbot_params'));
+    if (p) {
+      document.getElementById('gLongMin').value = Math.round(p.lMin * 100);
+      document.getElementById('gLongMax').value = Math.round(p.lMax * 100);
+      document.getElementById('gShortMin').value = Math.round(p.sMin * 100);
+      document.getElementById('gShortMax').value = Math.round(p.sMax * 100);
+    }
+  } catch(e) {}
+  applyGlobalParams();
+}
+
+/* ── Price Range ── */
+function fmtR(v) {
+  return v >= 1
+    ? v.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})
+    : v.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+}
+function setVal(id, val) {
+  const el = document.getElementById(id);
+  el.textContent = '$' + fmtR(val);
+  el.classList.remove('updated');
+  void el.offsetWidth;
+  el.classList.add('updated');
+}
+function calcLong(v) {
+  const p = parseFloat(v);
+  if (!v || isNaN(p) || p <= 0) {
+    document.getElementById('longMin').textContent = '—';
+    document.getElementById('longMax').textContent = '—';
+    // Clear iPrice sync jika input dikosongkan
+    const iPriceEl = document.getElementById('iPrice');
+    if (iPriceEl.dataset.synced === 'true') {
+      iPriceEl.value = '';
+      iPriceEl.dataset.synced = 'false';
+      calc();
+    }
+    return;
+  }
+  const gp = getGlobalParams();
+  setVal('longMin', p * (1 - gp.lMin));
+  setVal('longMax', p * (1 + gp.lMax));
+  // Sync ke Initial Price Asset di Martingale
+  const iPriceEl = document.getElementById('iPrice');
+  iPriceEl.value = v;
+  iPriceEl.dataset.synced = 'true';
+  // Sync Min Price ke Martingale
+  const iMinEl = document.getElementById('iMinPrice');
+  if (!iMinEl.dataset.manualMin || iMinEl.dataset.manualMin === 'false') {
+    iMinEl.value = (p * (1 - gp.lMin)).toFixed(p >= 1 ? 2 : 6);
+    iMinEl.dataset.manualMin = 'false';
+  }
+  showSyncIndicator();
+  calc();
+}
+function calcShort(v) {
+  const p = parseFloat(v);
+  if (!v || isNaN(p) || p <= 0) {
+    document.getElementById('shortMin').textContent = '—';
+    document.getElementById('shortMax').textContent = '—';
+    return;
+  }
+  const gpS = getGlobalParams();
+  setVal('shortMin', p * (1 - gpS.sMin));
+  setVal('shortMax', p * (1 + gpS.sMax));
+  // Sync ke Initial Price Asset di Martingale SHORT
+  const sPriceEl = document.getElementById('sPriceS');
+  sPriceEl.value = v;
+  sPriceEl.dataset.synced = 'true';
+  // Sync Max Price ke Martingale SHORT
+  const sMaxEl = document.getElementById('sMaxPriceS');
+  if (!sMaxEl.dataset.manualMax || sMaxEl.dataset.manualMax === 'false') {
+    sMaxEl.value = (p * (1 + gpS.sMax)).toFixed(p >= 1 ? 2 : 6);
+    sMaxEl.dataset.manualMax = 'false';
+  }
+  showSyncIndicatorShort();
+  calcShortMart();
+}
+
+/* ── Martingale ── */
+const N = 20;
+function fmt(v, d=2) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  if (v > 0 && v < 0.01) return v.toFixed(6);
+  return v.toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d});
+}
+function calc() {
+  const price   = parseFloat(document.getElementById('iPrice').value);
+  const nominal = parseFloat(document.getElementById('iAmount').value);
+  const volStep = parseFloat(document.getElementById('iVolStep').value) || 1.2;
+  const minInp  = parseFloat(document.getElementById('iMinPrice').value);
+
+
+  if (!price || !nominal || isNaN(price) || isNaN(nominal) || price <= 0 || nominal <= 0) {
+    resetUI(); return;
+  }
+
+  const gpC = getGlobalParams(); const minPrice = (!isNaN(minInp) && minInp > 0 && minInp < price) ? minInp : price * (1 - gpC.lMin);
+  document.getElementById('cMin').textContent = 'Min: $' + fmt(minPrice);
+
+  // Arithmetic progression: step[i] = a + i*d, sum of N-1 steps = totalDrop
+  // sum = (N-1)*a + d*(0+1+...+(N-2)) = (N-1)*a + d*(N-1)*(N-2)/2 = totalDrop
+  // Set a = d (minimum step = 1 unit), so: d*(N-1) + d*(N-1)*(N-2)/2 = totalDrop
+  // d * (N-1) * (1 + (N-2)/2) = totalDrop
+  // d * (N-1) * N/2 = totalDrop
+  const totalDrop = price - minPrice;
+  // Fixed first step = 0.5%, then arithmetic progression
+  const step1L = price * 0.005;
+  const dL = (N > 2) ? (totalDrop - (N-1)*step1L) / ((N-1)*(N-2)/2) : 0;
+
+  const rows = [];
+  let cumNom = 0, cumCoins = 0, curPrice = price;
+
+  for (let i = 0; i < N; i++) {
+    let step = null;
+    if (i > 0) {
+      step = step1L + (i-1)*dL;
+      curPrice = curPrice - step;
+      if (curPrice < minPrice) curPrice = minPrice;
+      if (curPrice < 0) curPrice = 0;
+    }
+    const nom   = nominal * Math.pow(volStep, i);
+    const coins = nom / curPrice;
+    cumNom += nom; cumCoins += coins;
+    const avg = cumNom / cumCoins;
+    const pctDrop = i === 0 ? 0 : ((price - curPrice) / price * 100);
+    rows.push({ n:i+1, step, price:curPrice, nom, cumNom, avg, pctDrop, isLast: i===N-1 });
+  }
+
+  const last = rows[N-1];
+  // Break Even = weighted avg price (all coins at avg price sell back to cover capital)
+  const breakEven = last.avg;
+  // Profit if all entries filled and price returns to initial
+  const totalCoins = last.cumNom / last.avg; // total coins held
+  const valueAtInitial = totalCoins * price;
+  const profit = valueAtInitial - last.cumNom;
+  const profitPct = (profit / last.cumNom) * 100;
+
+  document.getElementById('sMin').textContent       = '$' + fmt(minPrice);
+  document.getElementById('sTotal').textContent     = '$' + fmt(last.cumNom, 0);
+  document.getElementById('sAvg').textContent       = '$' + fmt(last.avg);
+
+  const maxNom = Math.max(...rows.map(r => r.nom));
+  document.getElementById('tBody').innerHTML = rows.map((row, idx) => `
+    <div class="tr${row.isLast ? ' row-last' : ''}" style="animation-delay:${(idx*.018).toFixed(3)}s">
+      <div class="td td-no">${row.n}</div>
+      <div class="td td-step">${row.step !== null ? fmt(row.step,1) : '—'}</div>
+      <div class="td td-price">${fmt(row.price,2)}</div>
+      <div class="td td-nom">${fmt(row.nom,1)}</div>
+      <div class="td td-cum">${fmt(row.cumNom,1)}</div>
+      <div class="td td-avg">${fmt(row.avg,1)}</div>
+      <div class="td td-drop">${row.pctDrop > 0 ? '-' + fmt(row.pctDrop,1) + '%' : '—'}</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${(row.nom/maxNom*100).toFixed(1)}%"></div></div>
+    </div>`).join('');
+}
+function resetUI() {
+  ['sMin','sTotal','sAvg'].forEach(id => document.getElementById(id).textContent = '—');
+  const gpR = getGlobalParams(); document.getElementById('cMin').textContent = 'Min: auto -' + Math.round(gpR.lMin*100) + '%';
+  document.getElementById('tBody').innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">📊</div>
+      Enter price & initial amount<br>to generate the table
+    </div>`;
+}
+
+/* ── Sync indicator ── */
+function showSyncIndicator() {
+  let badge = document.getElementById('syncBadge');
+  if (!badge) return;
+  badge.style.opacity = '1';
+  clearTimeout(badge._timer);
+  badge._timer = setTimeout(() => { badge.style.opacity = '0'; }, 2000);
+}
+
+/* Jika user edit iPrice manual, lepas sync */
+document.getElementById('iPrice').addEventListener('input', function() {
+  const longVal = parseFloat(document.getElementById('longInput').value);
+  const thisVal = parseFloat(this.value);
+  if (longVal !== thisVal) {
+    this.dataset.synced = 'false';
+    const badge = document.getElementById('syncBadge');
+    if (badge) badge.style.opacity = '0';
+  }
+});
+
+/* Jika user edit iMinPrice manual, tandai sebagai manual */
+document.getElementById('iMinPrice').addEventListener('input', function() {
+  this.dataset.manualMin = this.value ? 'true' : 'false';
+});
+
+/* ── Martingale SHORT ── */
+function calcShortMart() {
+  const price   = parseFloat(document.getElementById('sPriceS').value);
+  const nominal = parseFloat(document.getElementById('sAmountS').value);
+  const volStep = parseFloat(document.getElementById('sVolStepS').value) || 1.2;
+  const maxInp  = parseFloat(document.getElementById('sMaxPriceS').value);
+
+
+  if (!price || !nominal || isNaN(price) || isNaN(nominal) || price <= 0 || nominal <= 0) {
+    resetUIShort(); return;
+  }
+
+  const gpSM = getGlobalParams(); const maxPrice = (!isNaN(maxInp) && maxInp > price) ? maxInp : price * (1 + gpSM.sMax);
+  document.getElementById('cMaxS').textContent = 'Max: $' + fmt(maxPrice);
+
+  // Fixed first step = 0.5%, then arithmetic progression
+  const totalRise = maxPrice - price;
+  const step1S = price * 0.005;
+  const dS2 = (N > 2) ? (totalRise - (N-1)*step1S) / ((N-1)*(N-2)/2) : 0;
+
+  const rows = [];
+  let cumNom = 0, cumCoins = 0, curPrice = price;
+
+  for (let i = 0; i < N; i++) {
+    let step = null;
+    if (i > 0) {
+      step = step1S + (i-1)*dS2;
+      curPrice = curPrice + step;
+      if (curPrice > maxPrice) curPrice = maxPrice;
+    }
+    const nom   = nominal * Math.pow(volStep, i);
+    const coins = nom / curPrice;
+    cumNom += nom; cumCoins += coins;
+    const avg = cumNom / cumCoins;
+    const pctRise = i === 0 ? 0 : ((curPrice - price) / price * 100);
+    rows.push({ n:i+1, step, price:curPrice, nom, cumNom, avg, pctRise, isLast: i===N-1 });
+  }
+
+  const last = rows[N-1];
+  const breakEven = last.avg;
+  // Profit SHORT: jika harga balik ke initial (turun dari avg), kita untung selisih
+  const totalCoins = last.cumNom / last.avg;
+  const profit = (last.avg - price) * totalCoins;
+  const profitPct = (profit / last.cumNom) * 100;
+
+  document.getElementById('sMaxOut').textContent     = '$' + fmt(maxPrice);
+  document.getElementById('sTotalS').textContent     = '$' + fmt(last.cumNom, 0);
+  document.getElementById('sAvgS').textContent       = '$' + fmt(last.avg);
+
+  const maxNom = Math.max(...rows.map(r => r.nom));
+  document.getElementById('tBodyS').innerHTML = rows.map((row, idx) => `
+    <div class="tr" style="animation-delay:${(idx*.018).toFixed(3)}s">
+      <div class="td td-no">${row.n}</div>
+      <div class="td td-step">${row.step !== null ? fmt(row.step,1) : '—'}</div>
+      <div class="td td-price">${fmt(row.price,2)}</div>
+      <div class="td td-nom">${fmt(row.nom,1)}</div>
+      <div class="td td-cum">${fmt(row.cumNom,1)}</div>
+      <div class="td td-avg">${fmt(row.avg,1)}</div>
+      <div class="td td-rise">${row.pctRise > 0 ? '+' + fmt(row.pctRise,1) + '%' : '—'}</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${(row.nom/maxNom*100).toFixed(1)}%"></div></div>
+    </div>`).join('');
+}
+
+function resetUIShort() {
+  ['sMaxOut','sTotalS','sAvgS'].forEach(id => document.getElementById(id).textContent = '—');
+  const gpRS = getGlobalParams(); document.getElementById('cMaxS').textContent = 'Max: auto +' + Math.round(gpRS.sMax*100) + '%';
+  document.getElementById('tBodyS').innerHTML = `
+    <div class="empty">
+      <div class="empty-icon">📊</div>
+      Enter price & initial amount<br>to generate the table
+    </div>`;
+}
+
+function showSyncIndicatorShort() {
+  let badge = document.getElementById('syncBadgeS');
+  if (!badge) return;
+  badge.style.opacity = '1';
+  clearTimeout(badge._timer);
+  badge._timer = setTimeout(() => { badge.style.opacity = '0'; }, 2000);
+}
+
+/* Jika user edit sPriceS manual, lepas sync */
+document.getElementById('sPriceS').addEventListener('input', function() {
+  const shortVal = parseFloat(document.getElementById('shortInput').value);
+  const thisVal = parseFloat(this.value);
+  if (shortVal !== thisVal) {
+    this.dataset.synced = 'false';
+    const badge = document.getElementById('syncBadgeS');
+    if (badge) badge.style.opacity = '0';
+  }
+});
+
+/* Jika user edit sMaxPriceS manual, tandai sebagai manual */
+document.getElementById('sMaxPriceS').addEventListener('input', function() {
+  this.dataset.manualMax = this.value ? 'true' : 'false';
+});
+/* ── MULTI BOT ── */
+const MB_KEY = 'gridbot_multibot_v1';
+function mbLoad() { try { return JSON.parse(localStorage.getItem(MB_KEY)) || []; } catch(e) { return []; } }
+function mbSave(d) { localStorage.setItem(MB_KEY, JSON.stringify(d)); }
+
+function mbOpenModal() {
+  document.getElementById('mbCoinInput').value = '';
+  document.getElementById('mbModalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('mbCoinInput').focus(), 300);
+}
+function mbCloseModal() { document.getElementById('mbModalOverlay').classList.remove('open'); }
+function mbCloseOutside(e) { if (e.target.id === 'mbModalOverlay') mbCloseModal(); }
+
+function mbAddCoin() {
+  const name = document.getElementById('mbCoinInput').value.trim().toUpperCase();
+  if (!name) return;
+  const coins = mbLoad();
+  coins.push({ id: Date.now(), name, longData:{}, shortData:{} });
+  mbSave(coins);
+  mbCloseModal();
+  mbRender();
+}
+
+function mbSaveInputs() {
+  const coins = mbLoad();
+  coins.forEach(c => {
+    const lp = document.getElementById('mb-lp-'+c.id);
+    const la = document.getElementById('mb-la-'+c.id);
+    const lv = document.getElementById('mb-lv-'+c.id);
+    const lm = document.getElementById('mb-lm-'+c.id);
+    const sp = document.getElementById('mb-sp-'+c.id);
+    const sa = document.getElementById('mb-sa-'+c.id);
+    const sv = document.getElementById('mb-sv-'+c.id);
+    const sm = document.getElementById('mb-sm-'+c.id);
+    if (lp) c.longData  = { price: lp.value, amount: la.value, vol: lv.value, min: lm.value };
+    if (sp) c.shortData = { price: sp.value, amount: sa.value, vol: sv.value, max: sm.value };
+  });
+  mbSave(coins);
+}
+
+function mbRestoreInputs() {
+  const coins = mbLoad();
+  coins.forEach(c => {
+    if (c.longData && c.longData.price) {
+      const lp = document.getElementById('mb-lp-'+c.id);
+      const la = document.getElementById('mb-la-'+c.id);
+      const lv = document.getElementById('mb-lv-'+c.id);
+      const lm = document.getElementById('mb-lm-'+c.id);
+      if (lp) { lp.value = c.longData.price; la.value = c.longData.amount; lv.value = c.longData.vol || 1.2; lm.value = c.longData.min || ''; mbCalcLong(c.id); }
+    }
+    if (c.shortData && c.shortData.price) {
+      const sp = document.getElementById('mb-sp-'+c.id);
+      const sa = document.getElementById('mb-sa-'+c.id);
+      const sv = document.getElementById('mb-sv-'+c.id);
+      const sm = document.getElementById('mb-sm-'+c.id);
+      if (sp) { sp.value = c.shortData.price; sa.value = c.shortData.amount; sv.value = c.shortData.vol || 1.2; sm.value = c.shortData.max || ''; mbCalcShort(c.id); }
+    }
+  });
+}
+
+function mbDeleteCoin(id) {
+  mbSaveInputs();
+  mbSave(mbLoad().filter(c => c.id !== id));
+  mbRender();
+}
+
+function mbToggleMinimize(id) {
+  const block = document.getElementById('mb-block-' + id);
+  block.classList.toggle('minimized');
+}
+
+function mbSwitchTab(id, tab) {
+  const block = document.getElementById('mb-block-' + id);
+  block.querySelectorAll('.mb-tab').forEach(t => t.classList.remove('active-long','active-short'));
+  block.querySelectorAll('.mb-panel').forEach(p => p.classList.remove('visible'));
+  block.querySelector('.mb-tab-' + tab).classList.add('active-' + tab);
+  block.querySelector('.mb-panel-' + tab).classList.add('visible');
+}
+
+/* Kalkulasi DCA — sama persis dengan calc() dan calcShortMart() */
+function mbCalcLong(id) {
+  const price   = parseFloat(document.getElementById('mb-lp-'+id).value);
+  const nominal = parseFloat(document.getElementById('mb-la-'+id).value);
+  const volStep = parseFloat(document.getElementById('mb-lv-'+id).value) || 1.2;
+  const minInp  = parseFloat(document.getElementById('mb-lm-'+id).value);
+
+
+  if (!price || !nominal || isNaN(price) || isNaN(nominal) || price <= 0 || nominal <= 0) {
+    ['mb-lsMin','mb-lsTotal','mb-lsAvg'].forEach(k => document.getElementById(k+'-'+id).textContent = '—');
+    document.getElementById('mb-lcmin-'+id).textContent = 'Min: auto -'+Math.round(getGlobalParams().lMin*100)+'%';
+    document.getElementById('mb-ltBody-'+id).innerHTML = '<div class="empty"><div class="empty-icon">📊</div>Enter price & initial amount</div>';
+    return;
+  }
+  const gpC = getGlobalParams(); const minPrice = (!isNaN(minInp) && minInp > 0 && minInp < price) ? minInp : price * (1 - gpC.lMin);
+  document.getElementById('mb-lcmin-'+id).textContent = 'Min: $'+fmt(minPrice);
+  const totalDrop = price - minPrice;
+  const step1ML = price * 0.005;
+  const dML = (N > 2) ? (totalDrop - (N-1)*step1ML) / ((N-1)*(N-2)/2) : 0;
+  const rows = []; let cumNom=0, cumCoins=0, curPriceL=price;
+  for (let i=0; i<N; i++) {
+    let st = null;
+    if (i>0) { st=step1ML+(i-1)*dML; curPriceL=curPriceL-st; if(curPriceL<minPrice)curPriceL=minPrice; if(curPriceL<0)curPriceL=0; }
+    const curPrice=curPriceL;
+    const nom=nominal*Math.pow(volStep,i), coins=nom/curPrice;
+    cumNom+=nom; cumCoins+=coins;
+    const avg=cumNom/cumCoins, pctDrop=i===0?0:((price-curPrice)/price*100);
+    rows.push({n:i+1,step:st,price:curPrice,nom,cumNom,avg,pctDrop,isLast:i===N-1});
+  }
+  const last=rows[N-1], totalCoins=last.cumNom/last.avg;
+  const profit=(totalCoins*price)-last.cumNom, profitPct=(profit/last.cumNom)*100;
+  document.getElementById('mb-lsMin-'+id).textContent   = '$'+fmt(minPrice);
+  document.getElementById('mb-lsTotal-'+id).textContent = '$'+fmt(last.cumNom,0);
+  document.getElementById('mb-lsAvg-'+id).textContent   = '$'+fmt(last.avg);
+  mbSaveInputs();
+  const maxNom=Math.max(...rows.map(r=>r.nom));
+  document.getElementById('mb-ltBody-'+id).innerHTML = rows.map((row,idx)=>`
+    <div class="tr${row.isLast?' row-last':''}" style="animation-delay:${(idx*.015).toFixed(3)}s">
+      <div class="td td-no">${row.n}</div>
+      <div class="td td-step">${row.step!==null?fmt(row.step,1):'—'}</div>
+      <div class="td td-price">${fmt(row.price,2)}</div>
+      <div class="td td-nom">${fmt(row.nom,1)}</div>
+      <div class="td td-cum">${fmt(row.cumNom,1)}</div>
+      <div class="td td-avg">${fmt(row.avg,1)}</div>
+      <div class="td td-drop">${row.pctDrop>0?'-'+fmt(row.pctDrop,1)+'%':'—'}</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${(row.nom/maxNom*100).toFixed(1)}%"></div></div>
+    </div>`).join('');
+}
+
+function mbCalcShort(id) {
+  const price   = parseFloat(document.getElementById('mb-sp-'+id).value);
+  const nominal = parseFloat(document.getElementById('mb-sa-'+id).value);
+  const volStep = parseFloat(document.getElementById('mb-sv-'+id).value) || 1.2;
+  const maxInp  = parseFloat(document.getElementById('mb-sm-'+id).value);
+
+
+  if (!price || !nominal || isNaN(price) || isNaN(nominal) || price <= 0 || nominal <= 0) {
+    ['mb-ssMax','mb-ssTotal','mb-ssAvg'].forEach(k => document.getElementById(k+'-'+id).textContent = '—');
+    document.getElementById('mb-scmax-'+id).textContent = 'Max: auto +'+Math.round(getGlobalParams().sMax*100)+'%';
+    document.getElementById('mb-stBody-'+id).innerHTML = '<div class="empty"><div class="empty-icon">📊</div>Enter price & initial amount</div>';
+    return;
+  }
+  const gpSM = getGlobalParams(); const maxPrice = (!isNaN(maxInp) && maxInp > price) ? maxInp : price * (1 + gpSM.sMax);
+  document.getElementById('mb-scmax-'+id).textContent = 'Max: $'+fmt(maxPrice);
+  const totalRise = maxPrice - price;
+  const step1MS = price * 0.005;
+  const dMS = (N > 2) ? (totalRise - (N-1)*step1MS) / ((N-1)*(N-2)/2) : 0;
+  const rows = []; let cumNom=0, cumCoins=0, curPriceS=price;
+  for (let i=0; i<N; i++) {
+    let st = null;
+    if (i>0) { st=step1MS+(i-1)*dMS; curPriceS=curPriceS+st; if(curPriceS>maxPrice)curPriceS=maxPrice; }
+    const curPrice=curPriceS;
+    const nom=nominal*Math.pow(volStep,i), coins=nom/curPrice;
+    cumNom+=nom; cumCoins+=coins;
+    const avg=cumNom/cumCoins, pctRise=i===0?0:((curPrice-price)/price*100);
+    rows.push({n:i+1,step:st,price:curPrice,nom,cumNom,avg,pctRise,isLast:i===N-1});
+  }
+  const last=rows[N-1], totalCoins=last.cumNom/last.avg;
+  const profit=(last.avg-price)*totalCoins, profitPct=(profit/last.cumNom)*100;
+  document.getElementById('mb-ssMax-'+id).textContent   = '$'+fmt(maxPrice);
+  document.getElementById('mb-ssTotal-'+id).textContent = '$'+fmt(last.cumNom,0);
+  document.getElementById('mb-ssAvg-'+id).textContent   = '$'+fmt(last.avg);
+  mbSaveInputs();
+  const maxNom=Math.max(...rows.map(r=>r.nom));
+  document.getElementById('mb-stBody-'+id).innerHTML = rows.map((row,idx)=>`
+    <div class="tr" style="animation-delay:${(idx*.015).toFixed(3)}s">
+      <div class="td td-no">${row.n}</div>
+      <div class="td td-step">${row.step!==null?fmt(row.step,1):'—'}</div>
+      <div class="td td-price">${fmt(row.price,2)}</div>
+      <div class="td td-nom">${fmt(row.nom,1)}</div>
+      <div class="td td-cum">${fmt(row.cumNom,1)}</div>
+      <div class="td td-avg">${fmt(row.avg,1)}</div>
+      <div class="td td-rise">${row.pctRise>0?'+'+fmt(row.pctRise,1)+'%':'—'}</div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${(row.nom/maxNom*100).toFixed(1)}%"></div></div>
+    </div>`).join('');
+}
+
+function mbRender() {
+  const coins = mbLoad();
+  const list  = document.getElementById('mbCoinList');
+  if (!coins.length) {
+    list.innerHTML = `<div class="mb-empty"><div style="font-size:30px;margin-bottom:10px;opacity:.3">🤖</div>No assets yet.<br>Add your first asset!</div>`;
+    return;
+  }
+  list.innerHTML = coins.map(c => {
+    const init = c.name.substring(0,3);
+    return `
+    <div class="mb-coin-block minimized" id="mb-block-${c.id}">
+      <div class="mb-coin-header" onclick="mbToggleMinimize(${c.id})">
+        <div class="mb-coin-title">
+          <div class="mb-coin-avatar">${init}</div>
+          <div>
+            <div class="mb-coin-name">${c.name}/USDT</div>
+            <div class="mb-coin-sub">GRID BOT · L/S</div>
+          </div>
+        </div>
+        <div class="mb-header-right">
+          <button class="mb-minimize-btn" onclick="event.stopPropagation();mbToggleMinimize(${c.id})" title="Minimize">⌃</button>
+          <button class="mb-del-btn" onclick="event.stopPropagation();mbDeleteCoin(${c.id})">✕</button>
+        </div>
+      </div>
+
+      <div class="mb-coin-body">
+        <div class="mb-tabs">
+          <div class="mb-tab mb-tab-long active-long" onclick="mbSwitchTab(${c.id},'long')">▲ LONG</div>
+          <div class="mb-tab mb-tab-short" onclick="mbSwitchTab(${c.id},'short')">▼ SHORT</div>
+        </div>
+
+        <!-- LONG PANEL -->
+        <div class="mb-panel mb-panel-long visible">
+          <div class="input-card">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
+              <div>
+                <div class="field-label">Price ($)</div>
+                <div class="input-wrap">
+                  <span class="prefix">$</span>
+                  <input type="number" id="mb-lp-${c.id}" placeholder="0" step="0.01" min="0" oninput="mbCalcLong(${c.id})">
+                </div>
+              </div>
+              <div>
+                <div class="field-label">Invest (USDT)</div>
+                <div class="input-wrap">
+                  <span class="prefix">$</span>
+                  <input type="number" id="mb-la-${c.id}" placeholder="0" step="1" min="1" value="" oninput="mbCalcLong(${c.id})">
+                </div>
+              </div>
+              <div>
+                <div class="field-label">Vol. Mult.</div>
+                <input type="number" class="no-pfx" id="mb-lv-${c.id}" placeholder="1.2" step="0.01" min="1.01" value="1.2" oninput="mbCalcLong(${c.id})">
+              </div>
+            </div>
+            <input type="hidden" id="mb-lm-${c.id}" value="">
+            <div class="sep"></div>
+            <div class="chips">
+              <span class="chip chip-green">▲ LONG</span>
+              <span class="chip chip-muted">20 entries</span>
+              <span class="chip chip-muted" id="mb-lcmin-${c.id}">Min: auto -50%</span>
+            </div>
+          </div>
+          <div class="summary">
+            <div class="sbox"><div class="sbox-label">Min Price</div><div class="sbox-val sv-green" id="mb-lsMin-${c.id}">—</div></div>
+            <div class="sbox"><div class="sbox-label">Total Capital</div><div class="sbox-val sv-yellow" id="mb-lsTotal-${c.id}">—</div></div>
+            <div class="sbox"><div class="sbox-label">Avg Price</div><div class="sbox-val sv-white" id="mb-lsAvg-${c.id}">—</div></div>
+          </div>
+          <div class="table-wrap">
+            <div class="table-scroll-hint">← scroll to see all →</div>
+            <div class="table-scroll">
+              <div class="t-head">
+                <div class="th">#</div><div class="th">Step</div><div class="th">Price</div>
+                <div class="th">Amount</div><div class="th">Cumul.</div><div class="th">Avg Price</div><div class="th">% Drop</div>
+              </div>
+              <div class="t-body" id="mb-ltBody-${c.id}">
+                <div class="empty"><div class="empty-icon">📊</div>Enter price & initial amount</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SHORT PANEL -->
+        <div class="mb-panel mb-panel-short">
+          <div class="input-card-short">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px;">
+              <div>
+                <div class="field-label">Price ($)</div>
+                <div class="input-wrap">
+                  <span class="prefix" style="color:var(--red)">$</span>
+                  <input type="number" id="mb-sp-${c.id}" placeholder="0" step="0.01" min="0" oninput="mbCalcShort(${c.id})">
+                </div>
+              </div>
+              <div>
+                <div class="field-label">Invest (USDT)</div>
+                <div class="input-wrap">
+                  <span class="prefix" style="color:var(--red)">$</span>
+                  <input type="number" id="mb-sa-${c.id}" placeholder="0" step="1" min="1" value="" oninput="mbCalcShort(${c.id})">
+                </div>
+              </div>
+              <div>
+                <div class="field-label">Vol. Mult.</div>
+                <input type="number" class="no-pfx" id="mb-sv-${c.id}" placeholder="1.2" step="0.01" min="1.01" value="1.2" oninput="mbCalcShort(${c.id})">
+              </div>
+            </div>
+            <input type="hidden" id="mb-sm-${c.id}" value="">
+            <div class="sep"></div>
+            <div class="chips">
+              <span class="chip" style="background:rgba(244,63,94,0.1);color:var(--red);border:1px solid rgba(244,63,94,0.2);">▼ SHORT</span>
+              <span class="chip chip-muted">20 entries</span>
+              <span class="chip chip-muted" id="mb-scmax-${c.id}">Max: auto +50%</span>
+            </div>
+          </div>
+          <div class="summary">
+            <div class="sbox" style="background:rgba(244,63,94,0.06);border:1px solid rgba(244,63,94,0.2);"><div class="sbox-label">Max Price</div><div class="sbox-val sv-red" id="mb-ssMax-${c.id}">—</div></div>
+            <div class="sbox"><div class="sbox-label">Total Capital</div><div class="sbox-val sv-yellow" id="mb-ssTotal-${c.id}">—</div></div>
+            <div class="sbox"><div class="sbox-label">Avg Price</div><div class="sbox-val sv-white" id="mb-ssAvg-${c.id}">—</div></div>
+          </div>
+          <div class="table-wrap" style="border-color:rgba(244,63,94,0.15);">
+            <div class="table-scroll-hint">← scroll to see all →</div>
+            <div class="table-scroll">
+              <div class="t-head" style="background:rgba(244,63,94,0.09);">
+                <div class="th" style="color:var(--red)">#</div><div class="th">Step</div><div class="th">Price</div>
+                <div class="th">Amount</div><div class="th">Cumul.</div><div class="th">Avg Price</div><div class="th">% Rise</div>
+              </div>
+              <div class="t-body" id="mb-stBody-${c.id}">
+                <div class="empty"><div class="empty-icon">📊</div>Enter price & initial amount</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Restore semua input & kalkulasi setelah render
+  mbRestoreInputs();
+
+  // Auto-save setiap kali input berubah
+  coins.forEach(c => {
+    ['mb-lp-','mb-la-','mb-lv-','mb-sp-','mb-sa-','mb-sv-'].forEach(prefix => {
+      const el = document.getElementById(prefix + c.id);
+      if (el) el.addEventListener('change', mbSaveInputs);
+    });
+  });
+}
+
+
+// ══ SINKRONISASI REAL-TIME ══
+const SP_KEY = 'gridbot_singlepage_v1';
+
+// ── Master sync: dipanggil setiap kali ada perubahan input apapun ──
+function syncAll() {
+  // 1. Ambil nilai dari Range page (sumber utama harga)
+  const longPrice  = parseFloat(document.getElementById('longInput').value)  || 0;
+  const shortPrice = parseFloat(document.getElementById('shortInput').value) || 0;
+
+  // 2. Sync Range → Martingale Long
+  if (longPrice > 0) {
+    const el = document.getElementById('iPrice');
+    if (el.dataset.synced !== 'false_manual') {
+      el.value = longPrice;
+      el.dataset.synced = 'true';
+    }
+  } else {
+    const el = document.getElementById('iPrice');
+    if (el.dataset.synced === 'true') { el.value = ''; el.dataset.synced = 'false'; }
+  }
+
+  // 3. Sync Range → Martingale Short
+  if (shortPrice > 0) {
+    const el = document.getElementById('sPriceS');
+    if (el.dataset.synced !== 'false_manual') {
+      el.value = shortPrice;
+      el.dataset.synced = 'true';
+    }
+  } else {
+    const el = document.getElementById('sPriceS');
+    if (el.dataset.synced === 'true') { el.value = ''; el.dataset.synced = 'false'; }
+  }
+
+  // 4. Recalc semua halaman sekaligus
+  calcLong(document.getElementById('longInput').value);
+  calcShort(document.getElementById('shortInput').value);
+  calc();
+  calcShortMart();
+
+  // 5. Simpan ke localStorage
+  spSave();
+}
+
+function spSave() {
+  const data = {
+    longInput:  document.getElementById('longInput')?.value  || '',
+    shortInput: document.getElementById('shortInput')?.value || '',
+    iPrice:     document.getElementById('iPrice')?.value     || '',
+    iAmount:    document.getElementById('iAmount')?.value    || '',
+    iVolStep:   document.getElementById('iVolStep')?.value   || '',
+    sPriceS:    document.getElementById('sPriceS')?.value    || '',
+    sAmountS:   document.getElementById('sAmountS')?.value   || '',
+    sVolStepS:  document.getElementById('sVolStepS')?.value  || '',
+  };
+  localStorage.setItem(SP_KEY, JSON.stringify(data));
+}
+
+function spRestore() {
+  try {
+    const d = JSON.parse(localStorage.getItem(SP_KEY));
+    if (!d) return;
+    if (d.longInput)  document.getElementById('longInput').value  = d.longInput;
+    if (d.shortInput) document.getElementById('shortInput').value = d.shortInput;
+    if (d.iPrice)     { document.getElementById('iPrice').value   = d.iPrice;   document.getElementById('iPrice').dataset.synced = 'true'; }
+    if (d.iAmount)    document.getElementById('iAmount').value    = d.iAmount;
+    if (d.iVolStep)   document.getElementById('iVolStep').value   = d.iVolStep;
+    if (d.sPriceS)    { document.getElementById('sPriceS').value  = d.sPriceS;  document.getElementById('sPriceS').dataset.synced = 'true'; }
+    if (d.sAmountS)   document.getElementById('sAmountS').value   = d.sAmountS;
+    if (d.sVolStepS)  document.getElementById('sVolStepS').value  = d.sVolStepS;
+  } catch(e) {}
+}
+
+// ── Attach listener ke SEMUA input yang relevan ──
+function attachAllListeners() {
+  // Range page
+  const longInput = document.getElementById('longInput');
+  const shortInput = document.getElementById('shortInput');
+  if (longInput)  longInput.addEventListener('input',  () => syncAll());
+  if (shortInput) shortInput.addEventListener('input', () => syncAll());
+
+  // Martingale Long — price sync balik ke range jika diisi manual
+  const iPrice = document.getElementById('iPrice');
+  if (iPrice) iPrice.addEventListener('input', function() {
+    if (this.value) this.dataset.synced = 'false_manual';
+    else this.dataset.synced = 'false';
+    calc(); spSave();
+  });
+  const iAmount = document.getElementById('iAmount');
+  if (iAmount) iAmount.addEventListener('input', () => { calc(); spSave(); });
+  const iVolStep = document.getElementById('iVolStep');
+  if (iVolStep) iVolStep.addEventListener('input', () => { calc(); spSave(); });
+
+  // Martingale Short — price sync balik ke range jika diisi manual
+  const sPriceS = document.getElementById('sPriceS');
+  if (sPriceS) sPriceS.addEventListener('input', function() {
+    if (this.value) this.dataset.synced = 'false_manual';
+    else this.dataset.synced = 'false';
+    calcShortMart(); spSave();
+  });
+  const sAmountS = document.getElementById('sAmountS');
+  if (sAmountS) sAmountS.addEventListener('input', () => { calcShortMart(); spSave(); });
+  const sVolStepS = document.getElementById('sVolStepS');
+  if (sVolStepS) sVolStepS.addEventListener('input', () => { calcShortMart(); spSave(); });
+}
+
+// ── Init ──
+loadGlobalParams();
+spRestore();
+mbRender();
+attachAllListeners();
+// Jalankan sync penuh setelah restore
+syncAll();
+mbRestoreInputs();
+
+// ── Swipe gesture dengan live drag ──
+(function() {
+  const pages = ['multi', 'range', 'martingale', 'short'];
+  let startX = 0, startY = 0, startTime = 0;
+  let tracking = false, dragging = false;
+  let currentEl = null;
+
+  function isScrollableX(el) {
+    while (el && el !== document.body) {
+      const s = window.getComputedStyle(el);
+      if ((s.overflowX === 'auto' || s.overflowX === 'scroll') && el.scrollWidth > el.clientWidth) return true;
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  function getActivePage() {
+    return document.querySelector('.page.active');
+  }
+
+  function getCurrentIdx() {
+    const idx = pages.indexOf(_currentPage);
+    return idx === -1 ? 0 : idx;
+  }
+
+  document.addEventListener('touchstart', function(e) {
+    if (isScrollableX(e.target)) { tracking = false; return; }
+    startX    = e.touches[0].clientX;
+    startY    = e.touches[0].clientY;
+    startTime = Date.now();
+    tracking  = true;
+    dragging  = false;
+    currentEl = getActivePage();
+    if (currentEl) currentEl.style.transition = 'none';
+  }, { passive: true });
+
+  document.addEventListener('touchmove', function(e) {
+    if (!tracking || !currentEl) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+
+    // Cek apakah dominan horizontal
+    if (!dragging && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    if (!dragging) {
+      if (Math.abs(dy) > Math.abs(dx)) { tracking = false; return; }
+      dragging = true;
+    }
+
+    const idx = getCurrentIdx();
+    const atStart = idx === 0;
+    const atEnd   = idx === pages.length - 1;
+
+    // Rubber band di ujung kiri/kanan
+    let move = dx;
+    if ((dx > 0 && atStart) || (dx < 0 && atEnd)) {
+      move = dx * 0.18; // rubber band
+    }
+
+    // Live drag — geser halaman mengikuti jari
+    currentEl.style.transform = `translateX(${move}px)`;
+    currentEl.style.opacity   = `${1 - Math.abs(move) / (window.innerWidth * 1.6)}`;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(e) {
+    if (!tracking || !currentEl) { tracking = false; return; }
+    tracking = false;
+
+    const dx  = e.changedTouches[0].clientX - startX;
+    const dy  = e.changedTouches[0].clientY - startY;
+    const dt  = Date.now() - startTime;
+    const vel = Math.abs(dx) / dt; // velocity px/ms
+
+    // Reset style dulu
+    currentEl.style.transition = '';
+    currentEl.style.transform  = '';
+    currentEl.style.opacity    = '';
+
+    if (!dragging) return;
+
+    const idx     = getCurrentIdx();
+    const absDx   = Math.abs(dx);
+    const trigger = absDx > window.innerWidth * 0.28 || vel > 0.45;
+
+    if (!trigger) {
+      // Snap back dengan animasi
+      currentEl.style.transition = 'transform .25s cubic-bezier(.16,1,.3,1), opacity .25s ease';
+      currentEl.style.transform  = 'translateX(0)';
+      currentEl.style.opacity    = '1';
+      setTimeout(() => {
+        if (currentEl) { currentEl.style.transition = ''; currentEl.style.transform = ''; currentEl.style.opacity = ''; }
+      }, 260);
+      return;
+    }
+
+    const nextIdx = dx < 0
+      ? Math.min(idx + 1, pages.length - 1)
+      : Math.max(idx - 1, 0);
+
+    if (nextIdx !== idx) goTo(pages[nextIdx]);
+
+    currentEl = null;
+  }, { passive: true });
+})();
+
+</script>
+</body>
+</html>
